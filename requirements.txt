@@ -1,3 +1,5 @@
-torch==2.3.0
+torch 
+torchvision 
+torchaudio
 datasets==2.19.1
 tokenizers==0.19.1

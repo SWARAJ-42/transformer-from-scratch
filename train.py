@@ -28,7 +28,7 @@ def get_or_build_tokenizer(config, ds, lang):
         tokenizer.pre_tokenizer = Whitespace()
         trainer = WordLevelTrainer(special_tokens=['[UNK]', '[PAD]', '[SOS]', '[EOS]'], min_frequency=2)
         tokenizer.train_from_iterator(get_all_sentences(ds, lang), trainer=trainer)
-        tokenizer.save(tokenizer_path)
+        tokenizer.save(str(tokenizer_path))
     else:
         tokenizer = Tokenizer.from_file(str(tokenizer_path))
     return tokenizer
@@ -66,8 +66,7 @@ def get_ds(config):
     return train_dataloader, val_dataloader, tokenizer_src, tokenizer_tgt
 
 def get_model(config, vocab_src_len, vocab_tgt_len):
-    model = model.build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['d_model'])
-    return model
+    return model.build_transformer(vocab_src_len, vocab_tgt_len, config['seq_len'], config['d_model'])
 
 def train_model(config):
     # Define the device
@@ -115,6 +114,7 @@ def train_model(config):
 
             # (B, Seq_len, tgt_vocab_size) --> (B * Seq_len, tgt_vocab_size)
             loss = loss_fn(proj_output.view(-1, tokenizer_tgt.get_vocab_size()), label.view(-1))
+            batch_iterator.set_postfix({f"loss": f"{loss.item():6.3f}"})
 
             # Log the loss
             writer.add_scalar('train loss', loss.item(), global_step)

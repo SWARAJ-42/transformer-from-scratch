@@ -11,7 +11,7 @@ class InputEmbeddings(nn.Module):
         self.embedding = nn.Embedding(vocab_size, d_model)
 
     def forward(self, x):
-        return self.embedding(x) * math.sqrt(d_model)
+        return self.embedding(x) * math.sqrt(self.d_model)
 
 
 class PositionalEncodings(nn.Module):
@@ -37,7 +37,7 @@ class PositionalEncodings(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + (self.pe[:, :x.shape[1], :]).requires_grade_(False)
+        x = x + (self.pe[:, :x.shape[1], :]).requires_grad_(False)
         return self.dropout(x)
 
 
@@ -88,7 +88,7 @@ class MultiHeadAttentionBlock(nn.Module):
 
         # (Batch, h, Seq_len, d_k) --> (Batch, h, Seq_len, Seq_len)
         attention_scores = (query @ key.transpose(-2, -1)
-                            ) / math.sqrt(self.d_k)
+                            ) / math.sqrt(d_k)
         if mask is not None:
             attention_scores.masked_fill_(mask == 0, -1e9)
         attention_scores = attention_scores.softmax(
@@ -108,18 +108,18 @@ class MultiHeadAttentionBlock(nn.Module):
 
         # (Batch, Seq_len, d_model) --> (Batch, Seq_len, h, d_k) --> (Batch, h, Seq_len, d_k)
         query = query.view(
-            query.shape[0], query.shape[1], self.h, self.d_k).tranpose(1, 2)
+            query.shape[0], query.shape[1], self.h, self.d_k).transpose(1, 2)
         key = key.view(key.shape[0], key.shape[1],
-                       self.h, self.d_k).tranpose(1, 2)
+                       self.h, self.d_k).transpose(1, 2)
         value = value.view(
-            value.shape[0], value.shape[1], self.h, self.d_k).tranpose(1, 2)
+            value.shape[0], value.shape[1], self.h, self.d_k).transpose(1, 2)
 
         x, self.attention_scores = MultiHeadAttentionBlock.attention(
             query, key, value, mask, self.dropout)
 
         # (Batch, h, Seq_len, d_k) --> (Batch, Seq_len, h, d_k) --> (Batch, Seq_len, d_model)
-        x = x.tranpose(1, 2).contiguous().view(
-            x.shape[0], x.shape[1], self.h * self.d_k)
+        x = x.transpose(1, 2).contiguous().view(
+            x.shape[0], -1, self.h * self.d_k)
 
         # (Batch, Seq_len, d_model) --> (Batch, Seq_len, d_model)
         return self.w_o(x)
@@ -178,7 +178,7 @@ class DecoderBlock(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, layer: nn.ModuleList) -> None:
+    def __init__(self, layers: nn.ModuleList) -> None:
         super().__init__()
         self.layers = layers
         self.norm = LayerNormalization()
@@ -218,7 +218,8 @@ class Transformer(nn.Module):
     def decode(self, encoder_output, src_mask, tgt, tgt_mask):
         tgt = self.tgt_embed(tgt)
         tgt = self.tgt_pos(tgt)
-        tgt = self.decoder(tgt, encoder_output, src-mask, tgt_mask)
+        tgt = self.decoder(tgt, encoder_output, src_mask, tgt_mask)
+        return tgt
 
     def project(self, x):
         return self.projection_layer(x)
